@@ -9,7 +9,7 @@ public class Customer extends Thread {
     private static Restaurant restaurant = Restaurant.getInstance();
     private ReentrantLock lock = new ReentrantLock();
     private int availableCash;
-    private boolean isServiced;
+    private boolean isServed;
 
     public Customer(long id) {
         super("Customer# " + id);
@@ -22,7 +22,7 @@ public class Customer extends Thread {
     }
 
     public boolean isServed() {
-        return isServiced;
+        return isServed;
     }
 
     @Override
@@ -32,17 +32,22 @@ public class Customer extends Thread {
 
     @Override
     public void run() {
+        System.out.println(toString() + " is coming ...");
         CashDesk cashDesk = restaurant.defineRecommendedCashDesk();
         cashDesk.registerCustomer(this);
     }
 
+    @Override
+    public String toString() {
+        return "Customer{" +
+                "id=" + id +
+                '}';
+    }
+
     public int serve() {
-        lock.lock();
-        isServiced = true;
+        isServed = true;
         int spentMoney = Generator.generateRandom(availableCash);
         availableCash -= spentMoney;
-        lock.unlock();
-        System.out.println("Customer# " + getId() + " is served");
         return spentMoney;
     }
 }

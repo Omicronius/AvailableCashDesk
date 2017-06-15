@@ -2,14 +2,14 @@ package com.epam.availablecashdesk.entity;
 
 import com.epam.availablecashdesk.util.Generator;
 
+import java.util.ArrayDeque;
 import java.util.PriorityQueue;
 import java.util.concurrent.TimeUnit;
 
 public class CashDesk extends Thread {
     private long id;
-    private static final int CASHIER_AMOUNT = 1;
     private int cashbox;
-    private PriorityQueue<Customer> queue = new PriorityQueue<>(CASHIER_AMOUNT);
+    private ArrayDeque<Customer> queue = new ArrayDeque<>();
 
     public CashDesk(long id) {
         super("CashDesk# " + id);
@@ -18,27 +18,42 @@ public class CashDesk extends Thread {
 
     @Override
     public void run() {
+
+        try {
+            TimeUnit.SECONDS.sleep(3);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+
         while (true) {
-            Customer customer = queue.poll();
+            Customer customer = queue.pollFirst();
             if (customer != null && !customer.isServed()) {
                 int income = customer.serve();
                 try {
-                    TimeUnit.SECONDS.sleep(Generator.generateRandom(10) + 3);
+                    TimeUnit.SECONDS.sleep(Generator.generateRandom(3) + 1);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
-                System.out.println("Customer# " + customer.getId() + " is served by the " + this.getName());
                 cashbox += income;
+                System.out.println(customer.toString() + " is served by the " + toString());
             }
         }
     }
 
-    public int getQueueLength() {
+    public void registerCustomer(Customer customer) {
+        queue.add(customer);
+        System.out.println(customer.toString() + " added to the " + toString());
+    }
+
+    public int getSize() {
         return queue.size();
     }
 
-    public void registerCustomer(Customer customer) {
-        queue.offer(customer);
-        System.out.println(customer.getId() + " added to the " + this.getName());
+    @Override
+    public String toString() {
+        return "CashDesk" + id +
+                "(cashbox = " + cashbox +
+                ")";
     }
 }

@@ -4,10 +4,12 @@ import com.epam.availablecashdesk.util.Generator;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class Restaurant {
     private static Restaurant instance = null;
+    private static AtomicBoolean isCreated = new AtomicBoolean(false);
     private int totalCash;
     private static ArrayList<CashDesk> cashDesks = new ArrayList<>();
     private static ReentrantLock lock = new ReentrantLock();
@@ -17,15 +19,18 @@ public class Restaurant {
     }
 
     public static Restaurant getInstance() {
-        lock.lock();
-        try {
-            if (instance == null) {
-                instance = new Restaurant();
-                restaurantInitialization();
-                openCashDesks();
+        if (!isCreated.get()) {
+            lock.lock();
+            try {
+                if (instance == null) {
+                    instance = new Restaurant();
+                    restaurantInitialization();
+                    openCashDesks();
+                    isCreated.set(true);
+                }
+            } finally {
+                lock.unlock();
             }
-        } finally {
-            lock.unlock();
         }
         return instance;
     }
@@ -36,11 +41,11 @@ public class Restaurant {
 
     private static void restaurantInitialization() {
         for (int i = 0; i < CASHDESK_TOTAL_AMOUNT; i++) {
-        cashDesks.add(new CashDesk(Generator.generateCashDeskId()));
+            cashDesks.add(new CashDesk(Generator.generateCashDeskId()));
         }
     }
 
     public CashDesk defineRecommendedCashDesk() {
-        return cashDesks.stream().max(Comparator.comparingInt(CashDesk::getQueueLength)).get();
+        return cashDesks.stream().min(Comparator.comparingInt(CashDesk::getSize)).get();
     }
 }

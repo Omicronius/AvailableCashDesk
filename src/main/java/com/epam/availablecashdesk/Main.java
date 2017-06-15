@@ -10,11 +10,11 @@ import java.util.concurrent.TimeUnit;
 
 public class Main {
     public static void main(String[] args) throws InterruptedException {
-        Restaurant r = Restaurant.getInstance();
+        //Restaurant r = Restaurant.getInstance();
         ExecutorService es = Executors.newSingleThreadExecutor();
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 20; i++) {
             es.execute(new Customer(Generator.generateCustomerId()));
-            TimeUnit.SECONDS.sleep(Generator.generateRandom(5));
+            TimeUnit.SECONDS.sleep(Generator.generateRandom(1));
         }
     }
 }
