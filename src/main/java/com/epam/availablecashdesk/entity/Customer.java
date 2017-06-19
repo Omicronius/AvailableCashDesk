@@ -1,28 +1,29 @@
 package com.epam.availablecashdesk.entity;
 
 import com.epam.availablecashdesk.util.Generator;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class Customer extends Thread {
+    public static Logger logger = LogManager.getLogger(Customer.class);
     private long id;
+    private boolean isQuickOrder;
+    private boolean isServed;
+    private int availableCash;
     private static Restaurant restaurant = Restaurant.getInstance();
     private ReentrantLock lock = new ReentrantLock();
-    private int availableCash;
-    private boolean isServed;
+    private Condition condition = lock.newCondition();
 
-    public Customer(long id) {
+    public Customer(long id, boolean isQuickOrder, int availableCash) {
         super("Customer# " + id);
         this.id = id;
-        this.availableCash = Generator.generateRandom(100);
-    }
-
-    public int getAvailableCash() {
-        return availableCash;
-    }
-
-    public boolean isServed() {
-        return isServed;
+        this.isQuickOrder = isQuickOrder;
+        this.availableCash = availableCash;
     }
 
     @Override
@@ -30,11 +31,86 @@ public class Customer extends Thread {
         return id;
     }
 
+    public boolean isQuickOrder() {
+        return isQuickOrder;
+    }
+
+    public void setServed(boolean served) {
+        isServed = served;
+    }
+
+    public int getAvailableCash() {
+        return availableCash;
+    }
+
+    public void setAvailableCash(int availableCash) {
+        this.availableCash = availableCash;
+    }
+
     @Override
     public void run() {
-        System.out.println(toString() + " is coming ...");
-        CashDesk cashDesk = restaurant.defineRecommendedCashDesk();
-        cashDesk.registerCustomer(this);
+        CashDesk cashDesk;
+        if (isQuickOrder) {
+            restaurant.registerQuickOrder(this);
+            lock.lock();
+            try {
+                condition.await();
+            } catch (InterruptedException e) {
+                logger.log(Level.WARN, "Customer thread has been interrupted!");
+            } finally {
+                lock.unlock();
+            }
+        } else {
+            cashDesk = restaurant.registerOrder(this);
+            while (!isServed) {
+                try {
+                    TimeUnit.MILLISECONDS.sleep(300);
+                } catch (InterruptedException e) {
+                    logger.log(Level.WARN, "Customer thread has been interrupted!");
+                }
+                if (!isServed && cashDesk.getQueue().indexOf(this) > restaurant.defineShortestQueue().getSize()) {
+                    cashDesk = restaurant.relocate(this, cashDesk);
+                }
+            }
+        }
+        System.out.println(toString() + " <--- ");
+    }
+
+
+    public int serve() {
+        lock.lock();
+        setServed(true);
+        int spentMoney = Generator.generateRandom(5) + 1;
+        setAvailableCash(getAvailableCash() - spentMoney);
+        condition.signal();
+        lock.unlock();
+        return spentMoney;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Customer customer = (Customer) o;
+
+        if (id != customer.id) return false;
+        if (isQuickOrder != customer.isQuickOrder) return false;
+        if (isServed != customer.isServed) return false;
+        if (availableCash != customer.availableCash) return false;
+        if (lock != null ? !lock.equals(customer.lock) : customer.lock != null) return false;
+        return condition != null ? condition.equals(customer.condition) : customer.condition == null;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = (int) (id ^ (id >>> 32));
+        result = 31 * result + (isQuickOrder ? 1 : 0);
+        result = 31 * result + (isServed ? 1 : 0);
+        result = 31 * result + availableCash;
+        result = 31 * result + (lock != null ? lock.hashCode() : 0);
+        result = 31 * result + (condition != null ? condition.hashCode() : 0);
+        return result;
     }
 
     @Override
@@ -42,12 +118,5 @@ public class Customer extends Thread {
         return "Customer{" +
                 "id=" + id +
                 '}';
-    }
-
-    public int serve() {
-        isServed = true;
-        int spentMoney = Generator.generateRandom(availableCash);
-        availableCash -= spentMoney;
-        return spentMoney;
     }
 }
