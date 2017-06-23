@@ -15,7 +15,7 @@ public class Main {
             boolean isQuickOrder = Generator.generateRandom(10) < 2;
             int availableCash = Generator.generateRandom(10) + 10;
             es.execute(new Customer(id, isQuickOrder, availableCash));
-            TimeUnit.MILLISECONDS.sleep(Generator.generateRandom(10));
+            TimeUnit.MILLISECONDS.sleep(Generator.generateRandom(20));
         }
     }
 }

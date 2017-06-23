@@ -63,13 +63,18 @@ public class Customer extends Thread {
         } else {
             cashDesk = restaurant.registerOrder(this);
             while (!isServed) {
+                lock.lock();
+                try {
+                    if (cashDesk.getQueue().indexOf(this) > restaurant.defineShortestQueue().getSize()) {
+                        cashDesk = restaurant.relocate(this, cashDesk);
+                    }
+                } finally {
+                    lock.unlock();
+                }
                 try {
                     TimeUnit.MILLISECONDS.sleep(300);
                 } catch (InterruptedException e) {
                     logger.log(Level.WARN, "Customer thread has been interrupted!");
-                }
-                if (!isServed && cashDesk.getQueue().indexOf(this) > restaurant.defineShortestQueue().getSize()) {
-                    cashDesk = restaurant.relocate(this, cashDesk);
                 }
             }
         }
@@ -78,13 +83,17 @@ public class Customer extends Thread {
 
 
     public int serve() {
+        int spentMoney;
         lock.lock();
-        setServed(true);
-        int spentMoney = Generator.generateRandom(5) + 1;
-        setAvailableCash(getAvailableCash() - spentMoney);
-        condition.signal();
-        lock.unlock();
-        return spentMoney;
+        try {
+            setServed(true);
+            spentMoney = Generator.generateRandom(5) + 1;
+            setAvailableCash(getAvailableCash() - spentMoney);
+            condition.signal();
+        } finally {
+            lock.unlock();
+        }
+            return spentMoney;
     }
 
     @Override

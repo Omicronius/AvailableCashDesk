@@ -58,7 +58,7 @@ public class Restaurant {
         CashDesk cashDesk = defineShortestQueue();
         cashDesk.getQueue().add(customer);
         cashDesk.getQueue().sort(Comparator.comparing(Customer::isQuickOrder).reversed().thenComparing(Customer::getId));
-        condition.signalAll();
+        cashDesk.notifyCashDesk();
         lock.unlock();
         System.out.println(customer.toString() + " -quick-> " + cashDesk.toString());
     }
@@ -67,7 +67,7 @@ public class Restaurant {
         lock.lock();
         CashDesk cashDesk = defineShortestQueue();
         cashDesk.getQueue().add(customer);
-        condition.signalAll();
+        cashDesk.notifyCashDesk();
         lock.unlock();
         System.out.println(customer.toString() + " ---> " + cashDesk.toString());
         return cashDesk;
@@ -77,7 +77,7 @@ public class Restaurant {
         lock.lock();
         from.getQueue().remove(customer);
         CashDesk to = registerOrder(customer);
-        condition.signalAll();
+        to.notifyCashDesk();
         lock.unlock();
         System.out.println(customer.toString() + " -relocated->  from " + from.toString() + " to " + to);
         return to;

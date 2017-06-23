@@ -14,6 +14,7 @@ import java.util.concurrent.locks.ReentrantLock;
 public class CashDesk extends Thread {
     public static Logger logger = LogManager.getLogger(CashDesk.class);
     private long id;
+    private int counter;
     private int cashBox;
     private ArrayList<Customer> queue = new ArrayList<>();
     ReentrantLock lock = new ReentrantLock();
@@ -34,14 +35,9 @@ public class CashDesk extends Thread {
 
     @Override
     public void run() {
-        try {
-            TimeUnit.SECONDS.sleep(1);
-        } catch (InterruptedException e) {
-            logger.log(Level.WARN, "CashDesk thread has been interrupted!");
-        }
         while (true) {
             lock.lock();
-            if (queue.size() == 0) {
+            if (queue.isEmpty()) {
                 try {
                     condition.await();
                 } catch (InterruptedException e) {
@@ -51,10 +47,11 @@ public class CashDesk extends Thread {
             Customer customer = queue.remove(0);
             lock.unlock();
             int income = customer.serve();
-            System.out.println(customer.toString() + " is served by the " + toString());
             cashBox += income;
+            counter++;
+            System.out.println(customer.toString() + " is served by the " + toString());
             try {
-                TimeUnit.MILLISECONDS.sleep(Generator.generateRandom(20*(int) id) + 10);
+                TimeUnit.MILLISECONDS.sleep(Generator.generateRandom(50*(int) id) + 10);
             } catch (InterruptedException e) {
                 logger.log(Level.WARN, "CashDesk thread has been interrupted!");
             }
@@ -63,6 +60,15 @@ public class CashDesk extends Thread {
 
     public int getSize() {
         return queue.size();
+    }
+
+    public void notifyCashDesk() {
+        lock.lock();
+        try {
+            condition.signal();
+        } finally {
+            lock.unlock();
+        }
     }
 
     @Override
@@ -93,7 +99,8 @@ public class CashDesk extends Thread {
     public String toString() {
         return "CashDesk" + id +
                 "(cashBox = " + cashBox +
-                " queue length = " + queue.size() +
+                ", customers served = " + counter +
+                ", queue length = " + queue.size() +
                 ")";
     }
 }
