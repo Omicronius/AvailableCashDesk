@@ -1,6 +1,10 @@
 package com.epam.availablecashdesk.entity;
 
+import com.epam.availablecashdesk.util.ConfigurationManager;
 import com.epam.availablecashdesk.util.Generator;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -8,12 +12,12 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class Restaurant {
+    private static final Logger logger = LogManager.getLogger(Restaurant.class);
     private static Restaurant instance = null;
     private static AtomicBoolean isCreated = new AtomicBoolean(false);
     private static ArrayList<CashDesk> cashDesks = new ArrayList<>();
     private static ReentrantLock lock = new ReentrantLock();
     private static Condition condition = lock.newCondition();
-    private static final int CASHDESK_TOTAL_AMOUNT = 3;
 
     private Restaurant() {
     }
@@ -40,7 +44,7 @@ public class Restaurant {
     }
 
     private static void restaurantInitialization() {
-        for (int i = 0; i < CASHDESK_TOTAL_AMOUNT; i++) {
+        for (int i = 0; i < Integer.parseInt(ConfigurationManager.getProperty("working.cashdesk")); i++) {
             cashDesks.add(new CashDesk(Generator.generateCashDeskId()));
         }
     }
@@ -60,6 +64,7 @@ public class Restaurant {
         cashDesk.getQueue().sort(Comparator.comparing(Customer::isQuickOrder).reversed().thenComparing(Customer::getId));
         cashDesk.notifyCashDesk();
         lock.unlock();
+        //logger.log(Level.DEBUG, customer.toString() + " -quick-> " + cashDesk.toString());
         System.out.println(customer.toString() + " -quick-> " + cashDesk.toString());
     }
 
@@ -69,6 +74,7 @@ public class Restaurant {
         cashDesk.getQueue().add(customer);
         cashDesk.notifyCashDesk();
         lock.unlock();
+        //logger.log(Level.DEBUG, customer.toString() + " ---> " + cashDesk.toString());
         System.out.println(customer.toString() + " ---> " + cashDesk.toString());
         return cashDesk;
     }
@@ -79,6 +85,7 @@ public class Restaurant {
         CashDesk to = registerOrder(customer);
         to.notifyCashDesk();
         lock.unlock();
+        //logger.log(Level.DEBUG, customer.toString() + " -relocated->  from " + from.toString() + " to " + to);
         System.out.println(customer.toString() + " -relocated->  from " + from.toString() + " to " + to);
         return to;
     }
