@@ -5,5 +5,7 @@ import java.util.ResourceBundle;
 public class ConfigurationManager {
     private final static ResourceBundle resourceBundle = ResourceBundle.getBundle("configuration");
 
-    public static String getProperty(String key) {return resourceBundle.getString(key);}
+    public static int getProperty(String key) {
+        return Integer.parseInt(resourceBundle.getString(key));
+    }
 }

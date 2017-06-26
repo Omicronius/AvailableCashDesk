@@ -1,16 +1,16 @@
 package com.epam.availablecashdesk.entity;
 
+import com.epam.availablecashdesk.util.ConfigurationManager;
 import com.epam.availablecashdesk.util.Generator;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class Customer extends Thread {
-    public static Logger logger = LogManager.getLogger(Customer.class);
+    private static final Logger logger = LogManager.getLogger(Customer.class);
     private long id;
     private boolean isQuickOrder;
     private boolean isServed;
@@ -35,8 +35,8 @@ public class Customer extends Thread {
         return isQuickOrder;
     }
 
-    public void setServed(boolean served) {
-        isServed = served;
+    public boolean isServed() {
+        return isServed;
     }
 
     public int getAvailableCash() {
@@ -47,6 +47,10 @@ public class Customer extends Thread {
         this.availableCash = availableCash;
     }
 
+    private void setServed(boolean served) {
+        isServed = served;
+    }
+
     @Override
     public void run() {
         CashDesk cashDesk;
@@ -54,7 +58,7 @@ public class Customer extends Thread {
             restaurant.registerQuickOrder(this);
             lock.lock();
             try {
-                condition.await();
+                condition.await(); //The customer with quick order will sleep until he is served.
             } catch (InterruptedException e) {
                 logger.log(Level.WARN, "Customer thread has been interrupted!");
             } finally {
@@ -64,7 +68,7 @@ public class Customer extends Thread {
             cashDesk = restaurant.registerOrder(this);
             while (!isServed) {
                 lock.lock();
-                try {
+                try { //The customer is looking for a shorter queue for relocation.
                     if (cashDesk.getQueue().indexOf(this) > restaurant.defineShortestQueue().getSize()) {
                         cashDesk = restaurant.relocate(this, cashDesk);
                     }
@@ -72,7 +76,7 @@ public class Customer extends Thread {
                     lock.unlock();
                 }
                 try {
-                    TimeUnit.MILLISECONDS.sleep(300);
+                    TimeUnit.MILLISECONDS.sleep(ConfigurationManager.getProperty("customer.relocation.period"));
                 } catch (InterruptedException e) {
                     logger.log(Level.WARN, "Customer thread has been interrupted!");
                 }
@@ -87,7 +91,7 @@ public class Customer extends Thread {
         lock.lock();
         try {
             setServed(true);
-            spentMoney = Generator.generateRandom(5) + 1;
+            spentMoney = Generator.generateRandom(ConfigurationManager.getProperty("max.cheque"));
             setAvailableCash(getAvailableCash() - spentMoney);
             condition.signal();
         } finally {

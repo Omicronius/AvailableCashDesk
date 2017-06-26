@@ -8,7 +8,6 @@ import org.apache.logging.log4j.Logger;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class Restaurant {
@@ -17,7 +16,6 @@ public class Restaurant {
     private static AtomicBoolean isCreated = new AtomicBoolean(false);
     private static ArrayList<CashDesk> cashDesks = new ArrayList<>();
     private static ReentrantLock lock = new ReentrantLock();
-    private static Condition condition = lock.newCondition();
 
     private Restaurant() {
     }
@@ -39,53 +37,65 @@ public class Restaurant {
         return instance;
     }
 
-    private static void openCashDesks() {
-        cashDesks.forEach(Thread::start);
-    }
-
     private static void restaurantInitialization() {
-        for (int i = 0; i < Integer.parseInt(ConfigurationManager.getProperty("working.cashdesk")); i++) {
+        for (int i = 0; i < ConfigurationManager.getProperty("cashdesks.amount"); i++) {
             cashDesks.add(new CashDesk(Generator.generateCashDeskId()));
         }
+    }
+
+    private static void openCashDesks() {
+        cashDesks.forEach(Thread::start);
     }
 
     public CashDesk defineShortestQueue() {
         CashDesk result;
         lock.lock();
-        result = cashDesks.stream().min(Comparator.comparingInt(CashDesk::getSize)).get();
-        lock.unlock();
+        try {
+            result = cashDesks.stream().min(Comparator.comparingInt(CashDesk::getSize)).get();
+        } finally {
+            lock.unlock();
+        }
         return result;
     }
 
     public void registerQuickOrder(Customer customer) {
+        CashDesk cashDesk;
         lock.lock();
-        CashDesk cashDesk = defineShortestQueue();
-        cashDesk.getQueue().add(customer);
-        cashDesk.getQueue().sort(Comparator.comparing(Customer::isQuickOrder).reversed().thenComparing(Customer::getId));
-        cashDesk.notifyCashDesk();
-        lock.unlock();
-        //logger.log(Level.DEBUG, customer.toString() + " -quick-> " + cashDesk.toString());
+        try {
+            cashDesk = defineShortestQueue();
+            cashDesk.getQueue().add(customer);
+            cashDesk.getQueue().sort(Comparator.comparing(Customer::isQuickOrder).reversed().thenComparing(Customer::getId));
+            cashDesk.notifyCashDesk();
+        } finally {
+            lock.unlock();
+        }
         System.out.println(customer.toString() + " -quick-> " + cashDesk.toString());
     }
 
     public CashDesk registerOrder(Customer customer) {
+        CashDesk cashDesk;
         lock.lock();
-        CashDesk cashDesk = defineShortestQueue();
-        cashDesk.getQueue().add(customer);
-        cashDesk.notifyCashDesk();
-        lock.unlock();
-        //logger.log(Level.DEBUG, customer.toString() + " ---> " + cashDesk.toString());
+        try {
+            cashDesk = defineShortestQueue();
+            cashDesk.getQueue().add(customer);
+            cashDesk.notifyCashDesk();
+        } finally {
+            lock.unlock();
+        }
         System.out.println(customer.toString() + " ---> " + cashDesk.toString());
         return cashDesk;
     }
 
     public CashDesk relocate(Customer customer, CashDesk from) {
+        CashDesk to;
         lock.lock();
-        from.getQueue().remove(customer);
-        CashDesk to = registerOrder(customer);
-        to.notifyCashDesk();
-        lock.unlock();
-        //logger.log(Level.DEBUG, customer.toString() + " -relocated->  from " + from.toString() + " to " + to);
+        try {
+            from.getQueue().remove(customer);
+            to = registerOrder(customer);
+            to.notifyCashDesk();
+        } finally {
+            lock.unlock();
+        }
         System.out.println(customer.toString() + " -relocated->  from " + from.toString() + " to " + to);
         return to;
     }
